@@ -1,63 +1,176 @@
-# etl_loterias
-ETL Python para resultados de loterias - JSON → SQLite
-# Data Engineer Pleno
+# 🟩 ETL de Resultados de Loterias (JSON → SQLite)
 
-Este desafio tem como objetivo avaliar as habilidades técnicas e de raciocínio da pessoa candidata à vaga de Data Engineer Pleno na **Pier**. Queremos conhecer como você pensa, estrutura e implementa soluções de dados, da extração à disponibilização para análise.
+## 📌 Visão Geral
 
-## Objetivo
+Este projeto contém um ETL simples e didático que:
 
-Você receberá um arquivo **JSON** com dados brutos. Seu desafio é construir um pipeline de dados completo (ETL) que realize:
+1. **Lê** um arquivo JSON com resultados de loterias brasileiras (Mega-Sena, Quina, Lotofácil etc.).
+2. **Padroniza** e **limpa** os campos:
 
-1. **Extração:** Ler os dados do arquivo JSON;
-2. **Transformação:** Limpar, padronizar e transformar os dados conforme necessário. Isso pode incluir:
-    - Tratamento de valores ausentes, duplicados ou inconsistentes;
-    - Conversão e padronização de tipos de dados;
-    - Normalização de valores e criação de colunas derivadas;
-    - Qualquer outra transformação que melhore a qualidade e a consistência dos dados.
-3. **Carregamento:** Gravar os dados transformados em um **banco de dados relacional SQLite**, pronto para consultas analíticas;
-4. **Documentação:** Explicar claramente o processo de ETL, incluindo as decisões e justificativas para as transformações realizadas.
+   * datas (aceita formatos diferentes)
+   * textos com caracteres especiais
+   * valores nulos
+   * UFs inválidas
+3. **Normaliza** em tabelas relacionais:
 
-## Sobre os Dados
+   * concursos
+   * premiações
+   * ganhadores por município
+   * estados (UF → nome + região)
+   
+4. **Grava** tudo em um banco SQLite pronto para análise.
 
-O arquivo JSON contém uma série histórica de resultados da Loteria Federal. Cada registro inclui campos como data do sorteio, números sorteados e outras informações relevantes.
+O objetivo é ser **simples, legível e fácil de manter**, servindo como material educativo para ETL.
 
-A modelagem do banco de dados é **livre**. Você pode definir a estrutura e os relacionamentos como achar mais adequado. Esse ponto será avaliado considerando clareza, normalização e facilidade de análise.
+---
 
-É importante destacar que a vaga é para um engenheiro de dados. Portanto, vale pensar tanto na modelagem das camadas de dados, quanto modelagem das entidades e atributos.
+## 🗂 Estrutura do Projeto
 
-## Entregáveis
+```
+etl_loteria.py       → Script principal do ETL
+data/
+   dataset.json      → Seu arquivo de entrada (não incluso)
+   loteria.db        → Banco SQLite gerado
+README.md            → Este arquivo
+```
 
-Sua entrega deverá ser feita em um **repositório no GitHub**, contendo:
+---
 
-- O **código-fonte** completo do pipeline de dados (ETL);
-- Um arquivo `README.md` com:
-    - Instruções claras sobre como executar o pipeline;
-    - Dependências e requisitos;
-    - Breve explicação sobre o design e as decisões do projeto;
-- A **documentação** do processo de ETL (pode estar no README ou em um arquivo separado);
-- O arquivo **SQLite** com os dados já transformados e modelados.
+## 🧱 Modelo Relacional
 
-## Requisitos Técnicos
+### 🟦 concursos
 
-- Linguagem obrigatória: **Python**;
-- Banco de dados: **SQLite**;
-- Você tem liberdade total para escolher as bibliotecas, frameworks ou ferramentas auxiliares que julgar mais adequados;
-- O código deve ser legível, organizado e reprodutível.
+| campo              | tipo                  | descrição |
+| ------------------ | --------------------- | --------- |
+| id                 | INTEGER (PK)          |           |
+| loteria            | TEXT                  |           |
+| concurso           | INTEGER               |           |
+| data               | TEXT (ISO yyyy-mm-dd) |           |
+| local              | TEXT                  |           |
+| acumulou           | INTEGER (0/1)         |           |
+| observacao         | TEXT                  |           |
+| valor_arrecadado   | REAL                  |           |
+| prox_concurso      | INTEGER               |           |
+| data_prox_concurso | TEXT                  |           |
 
-## Critérios de Avaliação
+---
 
-Durante a análise do seu desafio, observaremos principalmente:
+### 🟪 premios
 
-- Qualidade e organização do código;
-- Clareza e coerência da modelagem de dados;
-- Tratamento e transformação adequados dos dados;
-- Documentação e explicação do raciocínio técnico;
-- Capacidade de comunicação e justificativa das escolhas.
+| campo       | tipo                          |
+| ----------- | ----------------------------- |
+| id          | INTEGER PK                    |
+| concurso_id | FK → concursos.id             |
+| descricao   | TEXT                          |
+| faixa       | INTEGER                       |
+| ganhadores  | INTEGER                       |
+| valor       | REAL                          |
+| dezenas     | TEXT (lista JSON serializada) |
 
-O desafio é aberto, e esperamos ver soluções criativas e bem fundamentadas. Use as melhores abordagens que você conhece e sinta-se à vontade para inovar.
+---
 
-## Apresentação
+### 🟧 ganhadores
 
-Você será convidada(o) para uma entrevista técnica. Nela, poderá apresentar seu trabalho, explicar suas decisões e responder perguntas sobre a solução proposta.
+| campo       | tipo              |
+| ----------- | ----------------- |
+| id          | INTEGER PK        |
+| concurso_id | FK → concursos.id |
+| municipio   | TEXT              |
+| uf          | TEXT              |
+| ganhadores  | INTEGER           |
+| posicao     | INTEGER           |
 
-Você tem liberdade para apresentar da forma que achar melhor, o uso de slides é totalmente opcional. Nosso objetivo é entender seu raciocínio, clareza técnica e capacidade de comunicação.
+---
+
+### 🟩 estados
+
+| campo       | tipo    |
+| ----------- | ------- |
+| uf          | TEXT PK |
+| nome_estado | TEXT    |
+| regiao      | TEXT    |
+
+UF inválida ou vazia → é convertida para `NULL`.
+
+---
+
+## 🧪 Requisitos
+
+### Python 3.8+
+
+Dependências:
+
+```
+sqlalchemy
+python-dateutil
+```
+
+Instalação:
+
+```bash
+pip install sqlalchemy python-dateutil
+```
+
+---
+
+## ▶ Como Executar
+
+### 🔍 Modo Preview (não grava no banco)
+
+Mostra contagens, UFs encontradas e registros ignorados:
+
+```bash
+python3 etl_loteria.py --input data/dataset.json --preview
+```
+
+---
+
+### 💾 Gerar banco SQLite
+
+```bash
+python3 etl_loteria.py --input data/dataset.json --output data/loteria.db
+```
+
+---
+
+## ♻ Funcionamento do ETL
+
+### 1. **Extract**
+
+* Lê o JSON completo
+* Aceita lista ou JSON linha a linha
+* Ignora registros sem número de concurso
+
+### 2. **Transform**
+
+* Converte datas para ISO `yyyy-mm-dd`
+* Remove caracteres especiais em textos
+* Trata valores nulos (`None`, `"N/A"`, `""`)
+* Normaliza UF → e descarta valores inválidos (`--`, `XX`, `G` etc.)
+* Garante que dezenas sejam armazenadas como JSON
+* Cria tabela de estados com nome + região
+
+### 3. **Load**
+
+* Cria automaticamente o SQLite
+* Insere concursos, premiações e ganhadores
+* Insere a tabela completa de UFs válidas
+
+---
+
+## 📊 Exemplo de Preview
+
+```
+=== PREVIEW ===
+Concursos: 8174
+Premiações: 116757
+Ganhadores: 9280
+UFs encontradas: PI, BA, SP, RJ, MG, ...
+Registros ignorados: 2
+```
+
+---
+
+## 📎 Licença
+
+Livre para uso, estudo e modificação.
